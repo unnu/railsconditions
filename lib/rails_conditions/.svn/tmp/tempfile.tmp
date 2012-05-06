@@ -1,0 +1,50 @@
+module RailsConditions
+  class Atom < Proposition
+    
+    def initialize(name)
+      @name = name
+      @klass = nil
+      @condition = nil
+      @exception_mixin = nil
+    end
+    
+    def evaluate(objects)
+      target = objects.detect{ |obj| obj.kind_of? @klass }
+      args = []
+      args << objects.first if objects.size > 1 && target.method("#{@condition}?").arity == 1 # TODO better implementation needed, only 1 arg is supported
+      target.__send__("#{@condition}?", *args) ? true : @exception_mixin
+    end
+    
+    def prepare_propositions(defining_class)
+      @klass, @condition = extract_class_from_condition(@name.to_s)
+      
+      unless @klass
+        @klass = defining_class
+        @condition = @name.to_s
+      end
+      
+      exception_mixin_name = "#{@condition.camelize}Failed".to_sym
+      @klass.const_set(exception_mixin_name, Module.new) unless @klass.const_defined?(exception_mixin_name)
+      @exception_mixin = @klass.const_get(exception_mixin_name)
+    end
+    
+    private
+      def extract_class_from_condition(name)
+        klass = nil
+        condition = nil
+
+        while true
+          break unless name.gsub!(/_([^_]+)$/, '')
+          condition = condition ? "#{$1}_#{condition}" : $1
+          class_name = name.camelcase.to_sym
+
+          if Object.const_defined?(class_name)
+            klass = Object.const_get(class_name)
+            break
+          end
+        end
+        
+        [klass, condition]
+      end
+  end
+end

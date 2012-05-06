@@ -1,0 +1,40 @@
+8
+
+dir
+9
+svn+ssh://inlet@rubyforge.org/var/svn/railsconditions/trunk/test
+svn+ssh://inlet@rubyforge.org/var/svn/railsconditions
+
+
+
+2007-07-04T16:09:16.105193Z
+9
+inlet
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+e66686f5-7597-44fa-938c-975c7490ae56
+
+rails_conditions_test.rb
+file
+
+
+
+
+2007-07-04T16:09:02.000000Z
+89d28babca48d48b3b10cae16693d47c
+2007-07-04T16:09:16.105193Z
+9
+inlet
+

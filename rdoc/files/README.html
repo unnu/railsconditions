@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html 
+     PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>File: README</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <meta http-equiv="Content-Script-Type" content="text/javascript" />
+  <link rel="stylesheet" href=".././rdoc-style.css" type="text/css" media="screen" />
+  <script type="text/javascript">
+  // <![CDATA[
+
+  function popupCode( url ) {
+    window.open(url, "Code", "resizable=yes,scrollbars=yes,toolbar=no,status=no,height=150,width=400")
+  }
+
+  function toggleCode( id ) {
+    if ( document.getElementById )
+      elem = document.getElementById( id );
+    else if ( document.all )
+      elem = eval( "document.all." + id );
+    else
+      return false;
+
+    elemStyle = elem.style;
+    
+    if ( elemStyle.display != "block" ) {
+      elemStyle.display = "block"
+    } else {
+      elemStyle.display = "none"
+    }
+
+    return true;
+  }
+  
+  // Make codeblocks hidden by default
+  document.writeln( "<style type=\"text/css\">div.method-source-code { display: none }</style>" )
+  
+  // ]]>
+  </script>
+
+</head>
+<body>
+
+
+
+  <div id="fileHeader">
+    <h1>README</h1>
+    <table class="header-table">
+    <tr class="top-aligned-row">
+      <td><strong>Path:</strong></td>
+      <td>README
+      </td>
+    </tr>
+    <tr class="top-aligned-row">
+      <td><strong>Last Update:</strong></td>
+      <td>Tue Jul 24 17:05:42 +0200 2007</td>
+    </tr>
+    </table>
+  </div>
+  <!-- banner header -->
+
+  <div id="bodyContent">
+
+
+
+  <div id="contextContent">
+
+    <div id="description">
+      <h1>Rails Conditions</h1>
+<p>
+Rails Conditions encapsulate the facets of a business logic condition using
+a simple macro. Conditions can be combined via logical operators to form
+complex expressions.
+</p>
+<h3>Simple condition</h3>
+<pre>
+  class User &lt; ActiveRecord::Base
+    attr_writer :logged_in
+    condition :logged_in do
+      @logged_in
+    end
+  end
+</pre>
+<p>
+The code above virtually generates:
+</p>
+<pre>
+  class User &lt; ActiveRecord::Base
+    attr_writer :logged_in
+
+    module LoggedInFailed; end
+
+    # The predicate method returning true / false
+    def logged_in?
+      @logged_in
+    end
+
+    # The bang method returning true / RailsConditions::Failed with condition mixin
+    def logged_in!
+      unless logged_in?
+        e = RailsCondition::Failed.new
+        e.extend LoggedInFailed
+        raise e
+      else
+        return true
+      end
+    end
+  end
+</pre>
+<h3>Elsewhere defined predicate method</h3>
+<p>
+If the predicate method is elsewhere defined e.g. by an ActiveRecord
+boolean database field, a block can be omitted and the existing predicate
+method is used.
+</p>
+<pre>
+  class User &lt; ActiveRecord::Base
+    # asssume boolean database field :is_admin
+    # Rails automaticly generates a is_admin? method for this boolean field
+    condition :is_admin
+  end
+</pre>
+<h3>Condition through precondition</h3>
+<p>
+A condition can be contructed from another condition. See complex
+preconditions, to recognize the real power of Rails Conditions.
+</p>
+<pre>
+  class Document &lt; ActiveRecord::Base
+    # asssume boolean database field :active
+    condition :active
+    condition :can_be_edited, :if =&gt; :active
+  end
+</pre>
+<h3>Preconditions without condition definition</h3>
+<p>
+A explicit definition of a condition is not needed to use it as a
+precondition. The boolean field active implicitly defines a predicacte
+method that could be used as a precondition.
+</p>
+<pre>
+  class Document &lt; ActiveRecord::Base
+    # asssume boolean database field :active
+    condition :can_be_edited, :if =&gt; :active
+  end
+</pre>
+<h3>Condition through complex preconditions</h3>
+<p>
+Conditions may consist of multiple precondition conjuncted by ANDs (&amp;)
+and ORs (|). The binding of the single apersand and single pipe are the
+same as the doubles known as boolean operators. You can also use parnthesis
+to adjust the binding.
+</p>
+<pre>
+  class Document &lt; ActiveRecord::Base
+    # asssume boolean database fields :public, :add_to_index, :expired, :spam
+    condition :can_be_indexed, :if =&gt; :public &amp; :add_to_index
+    condition :can_be_deleted, :if =&gt; :expired | :spam
+  end
+</pre>
+<h3>Using conditions from other models as preconditions</h3>
+<p>
+You can use a condition of another model as a precondition. All features,
+like preconditions without condition definition, can be used across
+multiple models.
+</p>
+<pre>
+  class User &lt; ActiveRecord::Base
+    # asssume boolean database fields :is_admin
+    condition :owns_document do |document|
+      id == document.user_id
+    end
+  end
+
+  class Document &lt; ActiveRecord::Base
+    # asssume boolean database field :active
+    belongs_to :user
+    condition :can_be_edited, :if =&gt; (:active &amp; :user_owns_posting) | :user_is_admin
+  end
+</pre>
+<h3>How to use Rails Conditions in the controller</h3>
+<p>
+Rails Conditions can help you simplify the control flow in your controller.
+In the following example the bang method generated from a condition is used
+to make a statement. If the statement is not true, the raised exception is
+used to decide how to handle this error case.
+</p>
+<pre>
+  class User &lt; ActiveRecord::Base
+    condition :owns_document do |document|
+      id == document.user_id
+    end
+  end
+
+  class Document &lt; ActiveRecord::Base
+    # asssume boolean database field :expired
+    belongs_to :user
+    condition :can_be_destroyed, :if =&gt; :expired &amp; :user_owns_posting
+  end
+
+  class DocumentsController &lt; ApplicationController
+    before_filter :authenticate_user
+
+    def destroy
+      @document = Document.find(params[:id])
+      @document.can_be_destroyed!(@user)
+      @document.detroy
+    rescue Document::ExpiredFailed
+      flash[:error] = 'The lifetime of this document has not ended. You can not destroy it.'
+    rescue User::OwnsDocumentFailed
+      flash[:error] = 'Hey, you are cheating! This is not your document!'
+    end
+  end
+</pre>
+<h3>How to use Rails Conditions in the view</h3>
+<p>
+Taking the above example the user can only destroy the document if he is
+the owner or the document is not expired. So you only want him to show the
+destroy link if he actually can destroy the document. The predicate method
+generated by the condition can help you in the view.
+</p>
+<pre>
+  &lt;% for document in @documents -%&gt;
+    &lt;%= document.title %&gt;
+    &lt;%= link_to_if document.can_be_detroyed(@user), 'Destroy', :action =&gt; 'detroy' %&gt;
+  &lt;% end -%&gt;
+</pre>
+<p>
+Copyright (c) 2007 Norman Timmler and Tammo Freese, released under the MIT
+license
+</p>
+
+    </div>
+
+
+   </div>
+
+
+  </div>
+
+
+    <!-- if includes -->
+
+    <div id="section">
+
+
+
+
+
+      
+
+
+    <!-- if method_list -->
+
+
+  </div>
+
+
+<div id="validator-badges">
+  <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+</div>
+
+</body>
+</html>

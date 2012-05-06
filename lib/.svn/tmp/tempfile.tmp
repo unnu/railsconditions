@@ -1,0 +1,99 @@
+#--
+# Copyright (c) 2007 Norman Timmler and Tammo Freese
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#++
+
+module RailsConditions
+  
+  class Failed < Exception; end
+  
+  mattr_accessor :registry
+  @@registry = {}
+  
+  module Base
+    def self.included(base)
+      base.extend(ClassMethods)
+      base.__send__(:class_variable_set, :@@rails_conditions, {})
+    end
+
+    module ClassMethods
+      def condition(condition_name, options = {}, &block)
+        
+        predicate_method_name = "#{condition_name}?"
+        bang_method_name = "#{condition_name}!"
+        
+        # Register condition
+        
+        condition = case options[:if]
+          when nil
+            Atom.new(condition_name)
+          when Symbol
+            Atom.new(options[:if])
+          else
+            options[:if]
+        end
+        
+        condition.prepare_propositions(self)
+        class_variable_get(:@@rails_conditions)[condition_name] = condition
+        
+        # Define predicate method if not defined yet
+        raise ArgumentError, "There is already a method #{predicate_method_name} defined" if self.class.method_defined?(predicate_method_name)
+        if options[:if]
+          class_eval <<-EOS
+            def #{predicate_method_name}(*objects)
+              objects << self
+              @@rails_conditions[:#{condition_name}].evaluate(objects).is_a?(Module) ? false : true
+            end
+          EOS
+        elsif block
+          define_method(predicate_method_name, &block)
+        else
+          # predicate method has to be defined later in the code
+          # no chance to check this here
+        end
+        
+        # Define bang method
+        class_eval <<-EOS
+          def #{bang_method_name}(*objects)
+            objects << self
+            if (mod = @@rails_conditions[:#{condition_name}].evaluate(objects)).is_a?(Module)
+              exception = RailsConditions::Failed.new
+              exception.extend mod
+              exception.extend RailsConditions.get_exception_mixin(self, :#{condition_name})
+              raise exception
+            else
+              true
+            end
+          end
+        EOS
+      end
+    end
+  end
+  
+  def self.get_exception_mixin(base_object, module_name)
+    mixin_name = "#{module_name.to_s.camelize}Failed".to_sym
+    if base_object.class.const_defined?(mixin_name)
+      base_object.class.const_get(mixin_name)
+    else
+      base_object.class.const_set(mixin_name, Module.new)
+    end
+  end
+end

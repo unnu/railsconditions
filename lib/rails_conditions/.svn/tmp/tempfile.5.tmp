@@ -1,0 +1,103 @@
+module RailsConditions
+  class Atom < Proposition
+    
+    class << self
+      def get_exception_mixin(klass, condition)
+        exception_mixin_name = "#{condition.to_s.camelize}Failed".to_sym
+        klass.const_set(exception_mixin_name, Module.new) unless klass.const_defined?(exception_mixin_name)
+        klass.const_get(exception_mixin_name)
+      end
+    end
+    
+    
+    def initialize(name)
+      @name = name
+      @defining_class = nil
+      @klass = nil
+      @condition = nil
+    end
+    
+    def propagate_defining_class(defining_class)
+      @defining_class = defining_class
+    end
+    
+    def evaluate(objects)
+      ensure_class_and_condition_assigned
+      
+      target = objects.detect{ |obj| obj.kind_of? @klass }
+      args = []
+      args << objects.first if objects.size > 1 && target.method("#{@condition}?").arity == 1 # TODO better implementation needed, only 1 arg is supported
+      target.__send__("#{@condition}?", *args) ? true : self.class.get_exception_mixin(@klass, @condition)
+    end
+    
+<<<<<<< .mine
+=======
+    def prepare_propositions(defining_class)
+      @klass, @condition = extract_class_from_condition(@name.to_s)
+      
+      unless @klass
+        @klass = defining_class
+        @condition = @name.to_s
+      end
+      
+      @exception_mixin = self.class.get_exception_mixin(@klass, @condition)
+    end
+    
+>>>>>>> .r4
+    private
+      def extract_class_from_condition(name)
+        klass = nil
+        condition = nil
+
+        while true
+          break unless name.gsub!(/_([^_]+)$/, '')
+          condition = condition ? "#{$1}_#{condition}" : $1
+          class_name = name.camelcase
+
+          begin
+            klass = eval(class_name)
+          rescue NameError
+            next
+          end
+          break
+        end
+        
+        [klass, condition]
+      end
+<<<<<<< .mine
+      
+      def ensure_class_and_condition_assigned
+        unless @klass
+          @klass, @condition = extract_class_from_condition(@name.to_s)
+          unless @klass
+            @klass = @defining_class
+            @condition = @name.to_s
+          end
+        end
+      end
+=======
+      
+      def parameters_info(object, method)
+        params = nil
+        values = nil
+        arity = object.method(method).arity
+
+        trace_func = lambda do |event, file, line, id, binding, class_name|
+          if event[/call/] && class_name == object.class && id == method
+            params = eval("local_variables", binding)
+            values = eval("local_variables.map{|x| eval(x)}", binding)
+            throw :done
+          end
+        end
+
+        set_trace_func(trace_func)
+        catch(:done){ object.send(method, *(0...arity)) }
+        set_trace_func(nil)
+
+        # remove parameters not direct assigning input values e.g. &block
+        params.delete_if { |param| values[params.index(param)].nil? }
+        params
+      end
+>>>>>>> .r4
+  end
+end

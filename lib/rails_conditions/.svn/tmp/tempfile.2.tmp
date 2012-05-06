@@ -1,0 +1,22 @@
+module RailsConditions
+  class Or < Proposition
+    
+    def initialize(first, second)
+      @first = first.is_a?(Symbol) ? Atom.new(first) : first
+      @second = second.is_a?(Symbol) ? Atom.new(second) : second
+    end
+    
+    def evaluate(objects)
+      if (first_result = @first.evaluate(objects)).is_a?(Module)
+        @second.evaluate(objects)
+      else 
+        first_result 
+      end
+    end
+    
+    def prepare_propositions(defining_class)
+      @first.prepare_propositions(defining_class)
+      @second.prepare_propositions(defining_class)
+    end
+  end
+end

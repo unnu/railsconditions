@@ -1,0 +1,9 @@
+module RailsConditions
+  class Proposition
+    include Operators
+    
+    def prepare_propositions(defining_class)
+      raise NotImplementedError
+    end
+  end
+end
